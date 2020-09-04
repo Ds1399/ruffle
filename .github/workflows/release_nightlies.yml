@@ -29,6 +29,8 @@ jobs:
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTIONS_RUNNER_DEBUG: true
+          ACTIONS_STEP_DEBUG: true
         with:
           tag_name: nightly/${{ steps.current_time_underscores.outputs.formattedTime }}
           release_name: Nightly ${{ steps.current_time_dashes.outputs.formattedTime }}
