@@ -66,7 +66,7 @@ jobs:
         run: |
           mkdir release
           cp README.md LICENSE_APACHE LICENSE_MIT release
-          cp target/release/ruffle_desktop.exe release/ruffle.exe
+#          cp target/release/ruffle_desktop.exe release/ruffle.exe
           7z a release.zip release/*
 
       - name: Package linux/mac
@@ -74,7 +74,7 @@ jobs:
         run: |
           mkdir release
           cp README.md LICENSE_APACHE LICENSE_MIT release
-          cp target/release/ruffle_desktop release/ruffle
+#          cp target/release/ruffle_desktop release/ruffle
           tar -czvf release.tar.gz release/*
 
       - name: Upload windows
