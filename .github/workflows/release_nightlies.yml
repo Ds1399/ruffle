@@ -51,22 +51,22 @@ jobs:
           profile: minimal
           toolchain: stable
 
-#      - name: Install linux depencencies
-#        if: matrix.os == 'ubuntu-latest'
-#        run: sudo apt-get -y install libasound2-dev libxcb-shape0-dev libxcb-xfixes0-dev
+      - name: Install linux depencencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get -y install libasound2-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
-#      - name: Build
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: build
-#          args: --release
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
 
       - name: Package windows
         if: matrix.os == 'windows-latest'
         run: |
           mkdir release
           cp README.md LICENSE_APACHE LICENSE_MIT release
-          # cp target/release/ruffle_desktop.exe release/ruffle.exe
+          cp target/release/ruffle_desktop.exe release/ruffle.exe
           7z a release.zip release/*
 
       - name: Package linux/mac
@@ -74,7 +74,7 @@ jobs:
         run: |
           mkdir release
           cp README.md LICENSE_APACHE LICENSE_MIT release
-          # cp target/release/ruffle_desktop release/ruffle
+          cp target/release/ruffle_desktop release/ruffle
           tar -czvf release.tar.gz release/*
 
       - name: Upload windows
@@ -84,7 +84,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-nightly-release.outputs.upload_url }}
-          asset_path: ./release/release.zip
+          asset_path: ./release.zip
           asset_name: ruffle_nightly_${{ needs.create-nightly-release.outputs.date }}_${{ matrix.os }}.zip
           asset_content_type: application/zip
 
@@ -95,6 +95,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-nightly-release.outputs.upload_url }}
-          asset_path: ./release/release.tar.gz
+          asset_path: ./release.tar.gz
           asset_name: ruffle_nightly_${{ needs.create-nightly-release.outputs.date }}_${{ matrix.os }}.tar.gz
           asset_content_type: application/gzip
