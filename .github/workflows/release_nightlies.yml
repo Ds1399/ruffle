@@ -6,6 +6,7 @@ on:
 jobs:
   create-nightly-release:
     name: Create nightly release
+    runs-on: ubuntu-latest
     outputs:
       upload_url: steps.create_release.outputs.upload_url
       date: steps.current_time_underscores.outputs.formattedTime
