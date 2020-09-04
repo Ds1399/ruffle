@@ -11,7 +11,37 @@ jobs:
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       date: ${{ steps.current_time_underscores.outputs.formattedTime }}
+      activity_check: ${{ env.GHA_REPO_ALIVE }}
     steps:
+      - name: Activity check
+        run: |
+          :
+          # Based off https://github.community/t/trigger-workflow-if-there-is-commit-in-last-24-hours/17074/3
+          curl -sL https://api.github.com/repos/$GITHUB_REPOSITORY/commits | jq -r '[.[]][0]' > $HOME/commit.json
+          date="$(jq -r '.commit.author.date' $HOME/commit.json)"
+          timestamp=$(date --utc -d "$date" +%s)
+          author="$(jq -r '.commit.author.name' $HOME/commit.json)"
+          url="$(jq -r '.html_url' $HOME/commit.json)"
+          days=$(( ( $(date --utc +%s) - $timestamp ) / 86400 ))
+          rm -f $HOME/commit.json
+          echo "Repository activity : $timestamp $author $url"
+          alive=0
+          if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+             echo "[WARNING] Ignoring activity limits : workflow triggered manually"
+             alive=1
+          else
+             if [ $days -lt 1 ]; then
+                echo Repository active : $days days
+                alive=1
+             else
+                echo "[WARNING] Repository not updated : event<${{ github.event_name }}> not allowed to modify stale repository"
+             fi
+          fi
+          if [ $alive -eq 1 ]; then
+             echo ::set-env name=GHA_REPO_ALIVE::true
+          fi
+        shell: bash
+
       - name: Get current time
         uses: 1466587594/get-current-time@v2
         id: current_time_dashes
@@ -25,6 +55,7 @@ jobs:
           format: YYYY_MM_DD
 
       - name: Create release
+        if: env.GHA_REPO_ALIVE == 'true'
         id: create_release
         uses: actions/create-release@v1
         env:
@@ -37,6 +68,7 @@ jobs:
   build-desktop-nightlies:
     name: Build desktop nightly for ${{ matrix.os }}
     needs: create-nightly-release
+    if: ${{ needs.create-nightly-release.outputs.activity_check == 1 }}
     strategy:
       fail-fast: false
       matrix:
