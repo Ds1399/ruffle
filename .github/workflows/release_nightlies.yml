@@ -9,8 +9,8 @@ jobs:
     name: Create nightly release
     runs-on: ubuntu-latest
     outputs:
-      upload_url: steps.create_release.outputs.upload_url
-      date: steps.current_time_underscores.outputs.formattedTime
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      date: ${{ steps.current_time_underscores.outputs.formattedTime }}
     steps:
       - name: Get current time
         uses: 1466587594/get-current-time@v2
@@ -51,36 +51,34 @@ jobs:
           profile: minimal
           toolchain: stable
 
-      - name: Install linux depencencies
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get -y install libasound2-dev libxcb-shape0-dev libxcb-xfixes0-dev
+#      - name: Install linux depencencies
+#        if: matrix.os == 'ubuntu-latest'
+#        run: sudo apt-get -y install libasound2-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
+#      - name: Build
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: build
+#          args: --release
 
-      - name: Prepare package
+      - name: Package windows
+        if: matrix.os == 'windows-latest'
         run: |
           mkdir release
           cp README.md LICENSE_APACHE LICENSE_MIT release
+          cp target/release/ruffle_desktop.exe release/ruffle.exe
+          7z a release.zip release/*
 
-      - name: Copy windows binary
-        if: matrix.os == 'windows-latest'
-        run: cp target/release/ruffle_desktop.exe release/ruffle.exe
-
-      - name: Copy binary
+      - name: Package linux/mac
         if: matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest'
-        run: cp target/release/ruffle_desktop release/ruffle
+        run: |
+          mkdir release
+          cp README.md LICENSE_APACHE LICENSE_MIT release
+          cp target/release/ruffle_desktop release/ruffle
+          tar -czvf release.tar.gz release/*
 
-      - name: Package files
-        uses: thedoctor0/zip-release@master
-        with:
-          filename: release.zip
-          directory: release
-
-      - name: Upload package
+      - name: Upload windows
+        if: matrix.os == 'windows-latest'
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
@@ -90,3 +88,15 @@ jobs:
           asset_path: ./release/release.zip
           asset_name: ruffle_nightly_${{ needs.create-nightly-release.outputs.date }}_${{ matrix.os }}.zip
           asset_content_type: application/zip
+
+      - name: Upload linux/mac
+        if: matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest'
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-nightly-release.outputs.upload_url }}
+          asset_path: ./release/release.tar.gz
+          asset_name: ruffle_nightly_${{ needs.create-nightly-release.outputs.date }}_${{ matrix.os }}.tar.gz
+          asset_content_type: application/gzip
