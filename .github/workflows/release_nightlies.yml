@@ -55,27 +55,50 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get -y install libasound2-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
-      - name: Build
+      - name: Setup node
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/setup-node@v1
+        with:
+          node-version: 12
+
+      - name: Build web
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: web
+        run: |
+          npm run bootstrap
+          npm run build
+
+      - name: Build desktop
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release
 
+      - name: Package common
+        run: |
+          mkdir release
+          cp README.md release/README.md
+          cp LICENSE_APACHE release/LICENSE_APACHE
+          cp LICENSE_MIT release/LICENSE_MIT
+
       - name: Package windows
         if: matrix.os == 'windows-latest'
         run: |
-          mkdir release
-          cp README.md LICENSE_APACHE LICENSE_MIT release
           cp target/release/ruffle_desktop.exe release/ruffle.exe
           7z a release.zip release/*
 
       - name: Package linux/mac
         if: matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest'
         run: |
-          mkdir release
-          cp README.md LICENSE_APACHE LICENSE_MIT release
           cp target/release/ruffle_desktop release/ruffle
-          tar -czvf release.tar.gz release/*
+          cd release
+          tar -czvf ../release.tar.gz *
+
+      - name: Package selfhosted
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd web/packages/selfhosted/dist
+          zip -r release.zip .
 
       - name: Upload windows
         if: matrix.os == 'windows-latest'
@@ -85,16 +108,60 @@ jobs:
         with:
           upload_url: ${{ needs.create-nightly-release.outputs.upload_url }}
           asset_path: ./release.zip
-          asset_name: ruffle_nightly_${{ needs.create-nightly-release.outputs.date }}_${{ matrix.os }}.zip
+          asset_name: ruffle_nightly_${{ needs.create-nightly-release.outputs.date }}_windows.zip
           asset_content_type: application/zip
 
-      - name: Upload linux/mac
-        if: matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest'
+      - name: Upload mac
+        if: matrix.os == 'macOS-latest'
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-nightly-release.outputs.upload_url }}
           asset_path: ./release.tar.gz
-          asset_name: ruffle_nightly_${{ needs.create-nightly-release.outputs.date }}_${{ matrix.os }}.tar.gz
+          asset_name: ruffle_nightly_${{ needs.create-nightly-release.outputs.date }}_mac.tar.gz
           asset_content_type: application/gzip
+
+      - name: Upload linux
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-nightly-release.outputs.upload_url }}
+          asset_path: ./release.tar.gz
+          asset_name: ruffle_nightly_${{ needs.create-nightly-release.outputs.date }}_linux.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload selfhosted
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-nightly-release.outputs.upload_url }}
+          asset_path: ./web/packages/selfhosted/dist/release.zip
+          asset_name: ruffle_nightly_${{ needs.create-nightly-release.outputs.date }}_selfhosted.zip
+          asset_content_type: application/zip
+
+      - name: Upload firefox extension
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-nightly-release.outputs.upload_url }}
+          asset_path: ./web/packages/extension/dist/firefox_unsigned.xpi
+          asset_name: ruffle_nightly_${{ needs.create-nightly-release.outputs.date }}_firefox.xpi
+          asset_content_type: application/x-xpinstall
+
+      - name: Upload generic extension
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-nightly-release.outputs.upload_url }}
+          asset_path: ./web/packages/extension/dist/ruffle_extension.zip
+          asset_name: ruffle_nightly_${{ needs.create-nightly-release.outputs.date }}_extension.zip
+          asset_content_type: application/zip
