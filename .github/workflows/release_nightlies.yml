@@ -1,0 +1,89 @@
+name: Release Nightly
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+
+jobs:
+  create-nightly-release:
+    name: Create nightly release
+    outputs:
+      upload_url: steps.create_release.outputs.upload_url
+      date: steps.current_time_underscores.outputs.formattedTime
+    steps:
+      - name: Get current time
+        uses: 1466587594/get-current-time@v2
+        id: current_time_dashes
+        with:
+          format: YYYY-MM-DD
+
+      - name: Get current time with underscores
+        uses: 1466587594/get-current-time@v2
+        id: current_time_underscores
+        with:
+          format: YYYY_MM_DD
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: nightly/${{ steps.current_time_underscores.outputs.formattedTime }}
+          release_name: Nightly ${{ steps.current_time_dashes.outputs.formattedTime }}
+          prerelease: true
+
+  build-desktop-nightlies:
+    name: Build desktop nightly for ${{ matrix.os }}
+    needs: create-nightly-release
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Use stable rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - name: Install linux depencencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get -y install libasound2-dev libxcb-shape0-dev libxcb-xfixes0-dev
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build --release
+
+      - name: Prepare package
+        run: |
+          mkdir release
+          cp README.md LICENSE_APACHE LICENSE_MIT release
+
+      - name: Copy windows binary
+        if: matrix.os == 'windows-latest'
+        run: cp target/release/ruffle_desktop.exe release/ruffle.exe
+
+      - name: Copy binary
+        if: matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest'
+        run: cp target/release/ruffle_desktop release/ruffle
+
+      - name: Package files
+        uses: thedoctor0/zip-release@master
+        with:
+          filename: release.zip
+          directory: release
+
+      - name: Upload package
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-nightly-release.outputs.upload_url }}
+          asset_path: ./release/release.zip
+          asset_name: ruffle_nightly_${{ needs.create-nightly-release.outputs.date }}_${{ matrix.os }}.zip
+          asset_content_type: application/zip
